@@ -1,0 +1,8 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Local Download Integration</title><link rel="stylesheet" href="popup.css"></head><body>
+<h1>Local Download Manager</h1><p>Open a video or reel, or paste its share link.</p>
+<input id="page-url" type="url" aria-label="Video or reel URL" placeholder="https://…">
+<label class="session"><input id="session" type="checkbox"> Use this site's signed-in Chrome session</label>
+<p class="hint">Optional. Sends only this site's cookies for this download.</p>
+<button id="page-download">Download video from this page (MP4)</button>
+<button id="check">Check desktop connection</button><div id="status" role="status"></div><main id="media"></main>
+<footer>Website support varies. Direct media links appear below. Protected streams are unsupported.</footer><script type="module" src="popup.js"></script></body></html>

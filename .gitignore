@@ -1,0 +1,24 @@
+inspection/idm-chrome/
+inspection/rea-extension.json
+bin/data/
+bin/Downloads/
+bin/tools/
+bin/LocalDownload.v02.exe
+bin/LocalDownloadHost.v02.exe
+bin/LocalDownload.v03.exe
+bin/LocalDownloadHost.v03.exe
+bin/LocalDownload.v04.exe
+bin/LocalDownloadHost.v04.exe
+tests/output/
+release/
+
+# Generated binaries, local bridge paths, runtime data, and machine inspection output.
+bin/
+inspection/
+__pycache__/
+*.py[cod]
+*.part
+*.keystore
+*.jks
+*.pem
+node_modules/

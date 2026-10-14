@@ -1,0 +1,41 @@
+import {chromium} from 'playwright';import assert from 'node:assert/strict';
+import {dirname,join} from 'node:path';import {fileURLToPath} from 'node:url';import {readFileSync} from 'node:fs';
+const root=dirname(dirname(fileURLToPath(import.meta.url)));const decoded='S:_SC:1405935541749674';const code=Buffer.from(decoded).toString('base64');const url=`https://www.facebook.com/stories/1986321208045496/${code}/`;
+let payload={data:{story:{id:decoded,video:{__typename:'Video',id:'424242',browser_native_hd_url:'https://video.xx.fbcdn.net/active-story.mp4'}},other:{id:'S:_SC:999',video:{__typename:'Video',id:'999',browser_native_hd_url:'https://video.xx.fbcdn.net/WRONG-STORY.mp4'}},secret:'RAW_PRIVATE_DATA_NOT_SENT'}};
+const context=await chromium.launchPersistentContext(join(root,'tests/output/story-profile'),{channel:'chromium',headless:true,args:[`--disable-extensions-except=${join(root,'extension')}`,`--load-extension=${join(root,'extension')}`]});
+try{
+  await context.route('https://www.facebook.com/**',route=>{
+    if(route.request().url().includes('/api/graphql'))return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+    return route.fulfill({status:200,contentType:'text/html',body:`<html><head><title>Owned story fixture</title><script type="application/json">${JSON.stringify(payload)}</script></head><body><video style="width:300px;height:200px"></video></body></html>`});
+  });
+  const page=await context.newPage();await page.goto(url);
+  const worker=context.serviceWorkers()[0]||await context.waitForEvent('serviceworker');
+  const tab=await worker.evaluate(async()=>{const tabs=await chrome.tabs.query({});return tabs.find(t=>t.url?.includes('/stories/'));});
+  await context.addCookies([{name:'c_user',value:'OWNED_TEST_ONLY',domain:'.facebook.com',path:'/',secure:true,httpOnly:true}]);
+  await worker.evaluate(()=>{globalThis.nativeCalls=0;chrome.runtime.sendNativeMessage=async(host,request)=>{nativeCalls++;await chrome.storage.session.set({storyRequest:request});return {ok:true,message:'Story fixture captured'};};});
+  const popup=await context.newPage();await popup.addInitScript(tab=>{chrome.tabs.query=async()=>[tab];},tab);
+  const id=readFileSync(join(root,'extension-id.txt'),'utf8').trim();await popup.goto(`chrome-extension://${id}/popup.html`);
+  await popup.getByRole('button',{name:'Download Facebook Story (MP4)',exact:true}).waitFor();await popup.locator('#session').check();await popup.locator('#page-download').click();
+  await popup.waitForFunction(()=>!document.querySelector('#page-download').disabled);
+  let request=await worker.evaluate(async()=>(await chrome.storage.session.get('storyRequest')).storyRequest);
+  assert.equal(request.url,'https://video.xx.fbcdn.net/active-story.mp4');assert.equal(request.kind,'file');assert.equal(request.sourceUrl,url);assert.deepEqual(request.cookies,[]);assert.equal(request.cookie,'');assert(!JSON.stringify(request).includes('RAW_PRIVATE_DATA_NOT_SENT'));
+  console.log('PASS selects active story HTML metadata, excludes other stories and raw/private response fields, keeps Facebook cookies off the CDN');
+  await page.evaluate(()=>{document.querySelectorAll('script[type="application/json"]').forEach(x=>x.remove());window.__localDownloadStoryCapture.records=[];});
+  const original=await page.evaluate(async()=>JSON.stringify(await (await fetch('/api/graphql/')).json()));assert.equal(original,JSON.stringify(payload));
+  await page.waitForFunction(()=>window.__localDownloadStoryCapture.records.length>0);
+  await popup.locator('#page-download').click();await popup.waitForFunction(()=>!document.querySelector('#page-download').disabled);
+  request=await worker.evaluate(async()=>(await chrome.storage.session.get('storyRequest')).storyRequest);assert.equal(request.url,'https://video.xx.fbcdn.net/active-story.mp4');
+  console.log('PASS captures story fetch metadata without changing Facebook response');
+  payload={data:{story:{id:decoded,video:{__typename:'Video',id:'424242'}}}};
+  await page.evaluate(()=>window.__localDownloadStoryCapture.records=[]);
+  await page.evaluate(()=>new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open('POST','/api/graphql/');xhr.onload=()=>resolve(xhr.status);xhr.onerror=reject;xhr.send('{}');}));
+  await popup.locator('#page-download').click();await popup.waitForFunction(()=>!document.querySelector('#page-download').disabled);
+  request=await worker.evaluate(async()=>(await chrome.storage.session.get('storyRequest')).storyRequest);assert.equal(request.url,'https://www.facebook.com/watch/?v=424242');assert.equal(request.kind,'page');assert(request.cookies.some(c=>c.name==='c_user'));
+  console.log('PASS captures XHR metadata and falls back to the active video ID with same-site session');
+  await page.evaluate(()=>window.__localDownloadStoryCapture.records=[]);const calls=await worker.evaluate(()=>nativeCalls);
+  await popup.locator('#page-download').click();await popup.waitForFunction(()=>!document.querySelector('#page-download').disabled);
+  assert.equal(await worker.evaluate(()=>nativeCalls),calls);assert((await popup.locator('#status').textContent()).includes('active story video is not available'));
+  await page.evaluate(({decoded})=>{window.__localDownloadStoryCapture.records=[{ids:[decoded],hd:'https://evil.example/video.mp4',time:Date.now()}];},{decoded});
+  await popup.locator('#page-download').click();await popup.waitForFunction(()=>!document.querySelector('#page-download').disabled);assert.equal(await worker.evaluate(()=>nativeCalls),calls);assert((await popup.locator('#status').textContent()).includes('Invalid story media URL'));
+  console.log('PASS no guessed story download and untrusted media origin rejected');
+}finally{await context.close();}
