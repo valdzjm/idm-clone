@@ -26,7 +26,7 @@ The downloader processes the first video when a link contains a collection/carou
 | Instagram reel `DdgUlmZikAU` | MP4 downloaded; VP9 video + AAC audio; 20.99 seconds |
 | Facebook reel `1822430045852437` | MP4 downloaded; AV1 video + AAC audio; 32.23 seconds |
 | Facebook video `1471882738092739` | MP4 downloaded; AV1 video + AAC audio; 25.17 seconds |
-| Instagram stories for `jdwnsllz` | Public-session extraction rejected with login required. Signed-in download was not verified with your account. |
+| Instagram stories for `****` | Public-session extraction rejected with login required. Signed-in download was not verified with your account. |
 | Facebook story for `1986321208045496` | Redirected to login in the public test session. The URL is accepted, but successful extraction was not verified; Facebook story pages may still be unsupported after login. Try a detected direct media link if page extraction fails. |
 
 Test evidence is in `tests/output/social-probes.json` and `tests/output/social-download-verification.json`. Downloaded test videos are in `tests/output/`. The generic extraction/session test passed against an owned local fixture, including byte identity, cookie forwarding, deletion and exclusion from history. The actual Chrome popup test verified site labels, URL normalization, explicit cookie opt-in, cross-site cookie isolation and feed rejection. These tests do not establish coverage of every video on a platform.
